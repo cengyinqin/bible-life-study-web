@@ -20,7 +20,7 @@ interface SearchEntry { b: string; bn: string; a: number; at: string; t: string 
 type Level = 'L1' | 'L2' | 'L3'
 interface L2State { bookId: string; bookName: string }
 interface L3State { bookId: string; articleIdx: number; articleTitle: string }
-type PickerLevel = 'testaments' | 'categories' | 'books'
+type PickerLevel = 'categories' | 'books'
 interface PickerBook { bookId: string; name: string; articleCount: number }
 
 // ── Highlight helpers ──────────────────────────────────
@@ -52,7 +52,7 @@ export default function Search() {
 
   // Picker state
   const [showPicker, setShowPicker] = useState(false)
-  const [pickerLevel, setPickerLevel] = useState<PickerLevel>('testaments')
+  const [pickerLevel, setPickerLevel] = useState<PickerLevel>('categories')
   const [pickerTestamentId, setPickerTestamentId] = useState('')
   const [pickerCategory, setPickerCategory] = useState('')
   const [pickerBooks, setPickerBooks] = useState<PickerBook[]>([])
@@ -125,8 +125,8 @@ export default function Search() {
   }
 
   // ── Picker handlers ──────────────────────────────────
-  const openPicker = () => { if (index) { setPickerLevel('testaments'); setShowPicker(true) } }
-  const pickerSelectTestament = (testamentId: string) => { setPickerTestamentId(testamentId); setPickerLevel('categories') }
+  const openPicker = () => { if (index) { setPickerTestamentId('new'); setPickerLevel('categories'); setShowPicker(true) } }
+  const switchPickerTestament = (tid: string) => { setPickerTestamentId(tid) }
   const pickerSelectCategory = (catName: string) => {
     if (!index) return
     const testament = index.testaments.find(t => t.id === pickerTestamentId)
@@ -137,10 +137,7 @@ export default function Search() {
     }
   }
   const pickerSelectBook = (book: PickerBook) => { goL2(book.bookId, book.name); setShowPicker(false) }
-  const pickerBack = () => {
-    if (pickerLevel === 'books') setPickerLevel('categories')
-    else if (pickerLevel === 'categories') setPickerLevel('testaments')
-  }
+  const pickerBack = () => { if (pickerLevel === 'books') setPickerLevel('categories') }
 
   // ── Render ───────────────────────────────────────────
   return (
@@ -216,7 +213,7 @@ export default function Search() {
           pickerTestamentId={pickerTestamentId} pickerCategory={pickerCategory}
           pickerBooks={pickerBooks}
           onClose={() => setShowPicker(false)}
-          onSelectTestament={pickerSelectTestament}
+          onSwitchTestament={switchPickerTestament}
           onSelectCategory={pickerSelectCategory}
           onSelectBook={pickerSelectBook}
           onBack={pickerBack} />
@@ -290,29 +287,38 @@ function HighlightedText({ paragraphs, keyword, markRefs }: { paragraphs: string
 }
 
 // ── Book Picker Panel (bottom sheet) ────────────────────
-function PickerPanel({ index, pickerLevel, pickerTestamentId, pickerCategory, pickerBooks, onClose, onSelectTestament, onSelectCategory, onSelectBook, onBack }: {
+function PickerPanel({ index, pickerLevel, pickerTestamentId, pickerCategory, pickerBooks, onClose, onSwitchTestament, onSelectCategory, onSelectBook, onBack }: {
   index: IndexData; pickerLevel: string; pickerTestamentId: string; pickerCategory: string
   pickerBooks: PickerBook[]; onClose: () => void
-  onSelectTestament: (id: string) => void; onSelectCategory: (name: string) => void
+  onSwitchTestament: (id: string) => void; onSelectCategory: (name: string) => void
   onSelectBook: (b: PickerBook) => void; onBack: () => void
 }) {
-  const testament = pickerTestamentId ? index.testaments.find(t => t.id === pickerTestamentId) : null
+  const testament = index.testaments.find(t => t.id === pickerTestamentId)
   return (
     <div className="picker-overlay" onClick={onClose}>
       <div className="picker-sheet" onClick={e => e.stopPropagation()}>
         <div className="picker-handle" />
         <div className="picker-header">
-          {pickerLevel !== 'testaments' && <button className="btn-back" onClick={onBack}><IconArrowLeft size={18} /></button>}
-          <h2>{pickerLevel === 'testaments' ? '选择书卷' : pickerLevel === 'categories' ? testament?.name || '' : pickerCategory}</h2>
+          {pickerLevel === 'books' && <button className="btn-back" onClick={onBack}><IconArrowLeft size={18} /></button>}
+          <h2>{pickerLevel === 'books' ? pickerCategory : '选择书卷'}</h2>
           <button className="picker-close" onClick={onClose}><IconX size={16} /></button>
         </div>
+
+        {/* Testament tabs (only on categories level) */}
+        {pickerLevel === 'categories' && (
+          <div className="testament-tabs" style={{ padding: '8px 16px 0' }}>
+            <button
+              className={`testament-tab ${pickerTestamentId === 'new' ? 'active' : ''}`}
+              onClick={() => onSwitchTestament('new')}
+            >新约</button>
+            <button
+              className={`testament-tab ${pickerTestamentId === 'old' ? 'active' : ''}`}
+              onClick={() => onSwitchTestament('old')}
+            >旧约</button>
+          </div>
+        )}
+
         <div className="picker-body">
-          {pickerLevel === 'testaments' && index.testaments.map(t => (
-            <button key={t.id} className="picker-series-card" onClick={() => onSelectTestament(t.id)}>
-              <div className="picker-series-title">{t.name}</div>
-              <div className="picker-series-count">{t.categories.reduce((s, c) => s + c.books.length, 0)} 卷</div>
-            </button>
-          ))}
           {pickerLevel === 'categories' && testament?.categories.map(c => (
             <button key={c.name} className="picker-series-card" onClick={() => onSelectCategory(c.name)}>
               <div className="picker-series-title">{c.name}</div>
